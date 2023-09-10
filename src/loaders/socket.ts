@@ -7,6 +7,8 @@ import { tokenValue } from '../utils/common';
 import { authEvents } from '../sockets/auth';
 import { response } from '../utils/socket.common';
 import { findOne } from '../utils/db';
+import { NotificationType } from '../utils/const';
+import { getKey } from './redis';
 
 export default function socketConnection(server: any) {
 	const io = new Server(server, {
@@ -28,7 +30,7 @@ export default function socketConnection(server: any) {
 		global.socket = socket;
 
 		socket.on('Request', async (data) => {
-			console.log('Data', data);
+			logger.info('Request' + JSON.stringify(data));
 			//allow auth events
 			if (data['event']?.split(':')?.[0] == 'auth')
 				return await authEvents({
@@ -38,11 +40,19 @@ export default function socketConnection(server: any) {
 			//check if token is valid
 			let token = data.payload.token;
 			delete data.payload.token;
-			if (!token) return response('auth:userInfo', { error: true, errorMsg: 'Token Not Found' });
-			console.log(token);
+			if (!token)
+				return response(
+					'fail',
+					{ error: true, msg: NotificationType.FAIL.TOKEN_NOT_FOUND },
+					'socket',
+				);
 			let value: any = tokenValue(token);
 			if (!value)
-				return response('auth:userInfo', { error: true, errorMsg: 'Token Not Is Not Valid' });
+				return response(
+					'fail',
+					{ error: true, msg: NotificationType.FAIL.TOKEN_NOT_IS_VALID },
+					'socket',
+				);
 			let user = await findOne({
 				collection: 'users',
 				query: {
@@ -50,8 +60,15 @@ export default function socketConnection(server: any) {
 					guest: value.role === 'guest',
 				},
 			});
-			if (!user) return response('auth:userInfo', { error: true, errorMsg: 'User Not Found' });
-			socket.join(value._id);
+			if (!user)
+				return response(
+					'fail',
+					{
+						error: true,
+						msg: NotificationType.FAIL.USER_NOT_FOUND,
+					},
+					'socket',
+				);
 			await handler(socketEvents)({
 				id: socket.id,
 				data: { ...data, ...user },

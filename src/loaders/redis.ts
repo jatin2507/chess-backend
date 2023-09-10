@@ -31,7 +31,11 @@ async function getKey(index: string, id: string | number) {
 	try {
 		let value: any = await redis.get(`${indexConst[index]}:${id}`);
 		if (!value) return null;
-		return typeof value == 'object' ? JSON.parse(value) : value;
+		try {
+			return JSON.parse(value);
+		} catch (e) {
+			return value;
+		}
 	} catch (e) {
 		logger.error(e);
 	}
@@ -49,7 +53,11 @@ async function lpop(index: string) {
 	try {
 		let value: any = await redis.lPop(`${indexConst[index]}`);
 		if (!value) return false;
-		return typeof value == 'object' ? JSON.parse(value) : value;
+		try {
+			return JSON.parse(value);
+		} catch (e) {
+			return value;
+		}
 	} catch (e) {
 		logger.error(e);
 	}
